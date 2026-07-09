@@ -11,12 +11,12 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11
+        jvmTarget = JavaVersion.VERSION_17
     }
 
     sourceSets {
@@ -26,8 +26,8 @@ android {
     defaultConfig {
         applicationId = "com.authgear.sdk.exampleapp.flutter"
         // minSdkVersion flutter.minSdkVersion
-        // 21 is required to use androidx.security
-        minSdk = 21
+        // shared_preferences_android now requires minSdk 24.
+        minSdk = 24
         targetSdk = flutter.targetSdkVersion
         if (project.hasProperty("VERSION_CODE")) {
             versionCode = Integer.parseInt(project.findProperty("VERSION_CODE"))
