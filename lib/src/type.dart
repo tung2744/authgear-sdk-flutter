@@ -30,7 +30,14 @@ extension PromptOptionExtension on PromptOption {
 
 enum AuthenticationPage { login, signup }
 
-enum SettingsPage { settings, identity }
+enum SettingsPage {
+  settings,
+  @Deprecated(
+    "Use SettingsPage.settings to see a list of identities instead. "
+    "To change an identity, use methods like changeEmail / changePhone.",
+  )
+  identity,
+}
 
 enum ColorScheme { light, dark }
 
