@@ -852,7 +852,8 @@ class Authgear implements AuthgearHttpClientDelegate {
         );
       } catch (e) {
         await _handleInvalidGrantException(e);
-        if (e is OAuthException && e.error == "invalid_grant") {
+        if (e is OAuthException &&
+            (e.error == "invalid_grant" || e.error == "invalid_dpop_proof")) {
           return;
         }
         rethrow;
@@ -1338,7 +1339,7 @@ class Authgear implements AuthgearHttpClientDelegate {
   Future<void> _handleInvalidGrantException(dynamic e) async {
     bool clearSession = false;
     if (e is OAuthException) {
-      if (e.error == "invalid_grant") {
+      if (e.error == "invalid_grant" || e.error == "invalid_dpop_proof") {
         clearSession = true;
       }
     } else if (e is ServerException) {
