@@ -596,6 +596,16 @@ class _MyAppState extends State<MyApp> {
                 SessionStateButton(
                   sessionState: _authgear.sessionState,
                   targetState: SessionState.authenticated,
+                  label: "Refresh Access Token",
+                  onPressed: _unconfigured || _loading
+                      ? null
+                      : () {
+                          _onPressRefreshAccessToken(context);
+                        },
+                ),
+                SessionStateButton(
+                  sessionState: _authgear.sessionState,
+                  targetState: SessionState.authenticated,
                   label: "Open Settings",
                   onPressed: _unconfigured || _loading
                       ? null
@@ -876,6 +886,44 @@ class _MyAppState extends State<MyApp> {
               child: Text(
                   const JsonEncoder.withIndent("  ").convert(userInfo.raw)),
             ),
+            actions: [
+              TextButton(
+                child: const Text("OK"),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          );
+        },
+      );
+    } catch (e) {
+      onError(context, e);
+    } finally {
+      setState(() {
+        _loading = false;
+      });
+    }
+  }
+
+  // Unlike _onPressGetUserInfo(), this does NOT chain any follow-up request
+  // after refresh, so the refresh result (e.g. invalid_grant vs
+  // invalid_dpop_proof) is not masked by a subsequent request made with a
+  // stale/missing access token.
+  Future<void> _onPressRefreshAccessToken(BuildContext context) async {
+    try {
+      setState(() {
+        _loading = true;
+      });
+      await _authgear.refreshAccessToken();
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text("Refresh Access Token"),
+            content: Text(
+                "Refreshed access token successfully.\nsessionState: ${_authgear.sessionState}"),
             actions: [
               TextButton(
                 child: const Text("OK"),
