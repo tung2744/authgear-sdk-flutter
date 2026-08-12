@@ -992,6 +992,28 @@ class _MyAppState extends State<MyApp> {
       httpClient: MyHTTPClient(http.Client()),
     );
     _sub?.cancel();
+    setState(() {
+      _authgear = authgear;
+      // Attach the listener before configure()/getUserInfo() below run, so
+      // their session-state-change events (e.g. the initial foundToken, or
+      // an invalid_grant/invalid_dpop_proof-driven clear) are not silently
+      // dropped: onSessionStateChange is a broadcast stream and does not
+      // buffer events for listeners that subscribe late.
+      _sub = authgear.onSessionStateChange.listen((e) {
+        print(
+          "onSessionStateChange: sessionState=${e.instance.sessionState} reason=${e.reason} error=${e.error}",
+        );
+        final error = e.error;
+        if (error is OAuthException) {
+          if (error.error == "invalid_grant") {
+            print("onSessionStateChange: error is invalid_grant");
+          } else if (error.error == "invalid_dpop_proof") {
+            print("onSessionStateChange: error is invalid_dpop_proof");
+          }
+        }
+        _syncAuthgearState();
+      });
+    });
     await authgear.configure();
     await _sharedPreferences.setString(
       "authgear.endpoint",
@@ -1015,24 +1037,9 @@ class _MyAppState extends State<MyApp> {
     }
 
     setState(() {
-      _authgear = authgear;
       _userInfo = userInfo;
-      _sub = _authgear.onSessionStateChange.listen((e) {
-        print(
-          "onSessionStateChange: sessionState=${e.instance.sessionState} reason=${e.reason} error=${e.error}",
-        );
-        final error = e.error;
-        if (error is OAuthException) {
-          if (error.error == "invalid_grant") {
-            print("onSessionStateChange: error is invalid_grant");
-          } else if (error.error == "invalid_dpop_proof") {
-            print("onSessionStateChange: error is invalid_dpop_proof");
-          }
-        }
-        _syncAuthgearState();
-      });
-      _syncAuthgearState();
     });
+    await _syncAuthgearState();
   }
 
   Future<void> _onPressOpenSettings(BuildContext context) async {
