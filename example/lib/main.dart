@@ -484,7 +484,7 @@ class _MyAppState extends State<MyApp> {
                 ),
                 TextButton(
                   onPressed: () {
-                    _onPressConfigure();
+                    _onPressConfigure(context);
                   },
                   child: const Text("Configure"),
                 ),
@@ -962,7 +962,7 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  Future<void> _onPressConfigure() async {
+  Future<void> _onPressConfigure(BuildContext context) async {
     final endpoint = _endpointController.text;
     final clientID = _clientIDController.text;
 
@@ -1004,7 +1004,14 @@ class _MyAppState extends State<MyApp> {
 
     UserInfo? userInfo;
     if (authgear.sessionState == SessionState.authenticated) {
-      userInfo = await authgear.getUserInfo();
+      // The session might already be unusable (e.g. invalid_grant or
+      // invalid_dpop_proof) even though sessionState optimistically says
+      // authenticated. Fall back to "not logged in" instead of crashing.
+      try {
+        userInfo = await authgear.getUserInfo();
+      } catch (e) {
+        onError(context, e);
+      }
     }
 
     setState(() {
