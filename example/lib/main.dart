@@ -1014,6 +1014,14 @@ class _MyAppState extends State<MyApp> {
         print(
           "onSessionStateChange: sessionState=${e.instance.sessionState} reason=${e.reason} error=${e.error}",
         );
+        final error = e.error;
+        if (error is OAuthException) {
+          if (error.error == "invalid_grant") {
+            print("onSessionStateChange: error is invalid_grant");
+          } else if (error.error == "invalid_dpop_proof") {
+            print("onSessionStateChange: error is invalid_dpop_proof");
+          }
+        }
         _syncAuthgearState();
       });
       _syncAuthgearState();
