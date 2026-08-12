@@ -1011,6 +1011,9 @@ class _MyAppState extends State<MyApp> {
       _authgear = authgear;
       _userInfo = userInfo;
       _sub = _authgear.onSessionStateChange.listen((e) {
+        print(
+          "onSessionStateChange: sessionState=${e.instance.sessionState} reason=${e.reason} error=${e.error}",
+        );
         _syncAuthgearState();
       });
       _syncAuthgearState();

@@ -20,7 +20,16 @@ class SessionStateChangeEvent {
   final SessionStateChangeReason reason;
   final Authgear instance;
 
-  SessionStateChangeEvent({required this.instance, required this.reason});
+  // error is non-null when reason is SessionStateChangeReason.invalid, i.e.
+  // the session was cleared because a request failed with an error such as
+  // invalid_grant or invalid_dpop_proof. It is null for all other reasons.
+  final Object? error;
+
+  SessionStateChangeEvent({
+    required this.instance,
+    required this.reason,
+    this.error,
+  });
 }
 
 final _rng = Random.secure();
@@ -326,10 +335,14 @@ class Authgear implements AuthgearHttpClientDelegate {
     _setSessionState(sessionState, SessionStateChangeReason.foundToken);
   }
 
-  void _setSessionState(SessionState s, SessionStateChangeReason r) {
+  void _setSessionState(
+    SessionState s,
+    SessionStateChangeReason r, [
+    Object? error,
+  ]) {
     _sessionStateRaw = s;
     _sessionStateStreamController.add(
-      SessionStateChangeEvent(instance: this, reason: r),
+      SessionStateChangeEvent(instance: this, reason: r, error: error),
     );
   }
 
@@ -1197,14 +1210,17 @@ class Authgear implements AuthgearHttpClientDelegate {
     }
   }
 
-  Future<void> _clearSession(SessionStateChangeReason reason) async {
+  Future<void> _clearSession(
+    SessionStateChangeReason reason, [
+    Object? error,
+  ]) async {
     await _tokenStorage.delRefreshToken(name);
     await _sharedStorage.onLogout(name);
     _idToken = null;
     _accessToken = null;
     _refreshToken = null;
     _expireAt = null;
-    _setSessionState(SessionState.noSession, reason);
+    _setSessionState(SessionState.noSession, reason, error);
   }
 
   Future<OIDCTokenResponse> _exchangeCode({
@@ -1348,7 +1364,7 @@ class Authgear implements AuthgearHttpClientDelegate {
       }
     }
     if (clearSession) {
-      await _clearSession(SessionStateChangeReason.invalid);
+      await _clearSession(SessionStateChangeReason.invalid, e);
     }
   }
 
