@@ -484,7 +484,7 @@ class _MyAppState extends State<MyApp> {
                 ),
                 TextButton(
                   onPressed: () {
-                    _onPressConfigure();
+                    _onPressConfigure(context);
                   },
                   child: const Text("Configure"),
                 ),
@@ -591,6 +591,16 @@ class _MyAppState extends State<MyApp> {
                       ? null
                       : () {
                           _onPressGetUserInfo(context);
+                        },
+                ),
+                SessionStateButton(
+                  sessionState: _authgear.sessionState,
+                  targetState: SessionState.authenticated,
+                  label: "Refresh Access Token",
+                  onPressed: _unconfigured || _loading
+                      ? null
+                      : () {
+                          _onPressRefreshAccessToken(context);
                         },
                 ),
                 SessionStateButton(
@@ -896,6 +906,44 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
+  // Unlike _onPressGetUserInfo(), this does NOT chain any follow-up request
+  // after refresh, so the refresh result (e.g. invalid_grant vs
+  // invalid_dpop_proof) is not masked by a subsequent request made with a
+  // stale/missing access token.
+  Future<void> _onPressRefreshAccessToken(BuildContext context) async {
+    try {
+      setState(() {
+        _loading = true;
+      });
+      await _authgear.refreshAccessToken();
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text("Refresh Access Token"),
+            content: Text(
+                "Refreshed access token successfully.\nsessionState: ${_authgear.sessionState}"),
+            actions: [
+              TextButton(
+                child: const Text("OK"),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          );
+        },
+      );
+    } catch (e) {
+      onError(context, e);
+    } finally {
+      setState(() {
+        _loading = false;
+      });
+    }
+  }
+
   Future<void> _onPressLogout(BuildContext context) async {
     try {
       setState(() {
@@ -914,7 +962,7 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  Future<void> _onPressConfigure() async {
+  Future<void> _onPressConfigure(BuildContext context) async {
     final endpoint = _endpointController.text;
     final clientID = _clientIDController.text;
 
@@ -944,6 +992,28 @@ class _MyAppState extends State<MyApp> {
       httpClient: MyHTTPClient(http.Client()),
     );
     _sub?.cancel();
+    setState(() {
+      _authgear = authgear;
+      // Attach the listener before configure()/getUserInfo() below run, so
+      // their session-state-change events (e.g. the initial foundToken, or
+      // an invalid_grant/invalid_dpop_proof-driven clear) are not silently
+      // dropped: onSessionStateChange is a broadcast stream and does not
+      // buffer events for listeners that subscribe late.
+      _sub = authgear.onSessionStateChange.listen((e) {
+        print(
+          "onSessionStateChange: sessionState=${e.instance.sessionState} reason=${e.reason} error=${e.error}",
+        );
+        final error = e.error;
+        if (error is OAuthException) {
+          if (error.error == "invalid_grant") {
+            print("onSessionStateChange: error is invalid_grant");
+          } else if (error.error == "invalid_dpop_proof") {
+            print("onSessionStateChange: error is invalid_dpop_proof");
+          }
+        }
+        _syncAuthgearState();
+      });
+    });
     await authgear.configure();
     await _sharedPreferences.setString(
       "authgear.endpoint",
@@ -956,17 +1026,20 @@ class _MyAppState extends State<MyApp> {
 
     UserInfo? userInfo;
     if (authgear.sessionState == SessionState.authenticated) {
-      userInfo = await authgear.getUserInfo();
+      // The session might already be unusable (e.g. invalid_grant or
+      // invalid_dpop_proof) even though sessionState optimistically says
+      // authenticated. Fall back to "not logged in" instead of crashing.
+      try {
+        userInfo = await authgear.getUserInfo();
+      } catch (e) {
+        onError(context, e);
+      }
     }
 
     setState(() {
-      _authgear = authgear;
       _userInfo = userInfo;
-      _sub = _authgear.onSessionStateChange.listen((e) {
-        _syncAuthgearState();
-      });
-      _syncAuthgearState();
     });
+    await _syncAuthgearState();
   }
 
   Future<void> _onPressOpenSettings(BuildContext context) async {
