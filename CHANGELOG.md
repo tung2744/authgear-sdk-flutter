@@ -1,5 +1,19 @@
 # Changelog
 
+## 5.1.0
+
+### Fixed
+
+- The SDK now clears the session when a token refresh fails with `invalid_dpop_proof` (previously only `invalid_grant` was handled), so a restored refresh token that no longer matches the DPoP key no longer leaves `sessionState` stuck at `authenticated` with refresh retrying forever.
+
+### Added
+
+- `SessionStateChangeEvent.error` now carries the error that triggered a session clear (e.g. an `OAuthException` with `invalid_grant` or `invalid_dpop_proof`) when `reason == SessionStateChangeReason.invalid`. It is `null` for all other reasons.
+
+### Deprecated
+
+- `SettingsPage.identity` is deprecated. Use `SettingsPage.settings` to list identities, and methods like `changeEmail`/`changePhone` to change them.
+
 ## 5.0.0
 
 ### Breaking changes
